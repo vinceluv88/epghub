@@ -173,3 +173,7 @@ web/robots.txt
 web/404.json
 web/404.html
 .DS_Store
+
+.dev.vars*
+!.dev.vars.example
+!.env.example
