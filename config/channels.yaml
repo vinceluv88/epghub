@@ -35,12 +35,3 @@ mytvsuper_84:
   refresh: once
   recap: 7
   preview: 2
-
-mytvsuper_85:
-  name:
-    - 無綫財經體育資訊台
-  scraper:
-    mytvsuper: 85
-  refresh: once
-  recap: 7
-  preview: 2
