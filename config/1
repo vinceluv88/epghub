@@ -1,0 +1,46 @@
+# Channel list
+---
+mytvsuper_81:
+  name:
+    - 翡翠台
+  scraper:
+    mytvsuper: 81
+  refresh: once
+  recap: 7
+  preview: 2
+
+mytvsuper_82:
+  name:
+    - TVB Plus
+  scraper:
+    mytvsuper: 82
+  refresh: once
+  recap: 7
+  preview: 2
+
+mytvsuper_83:
+  name:
+    - 無綫新聞台
+  scraper:
+    mytvsuper: 83
+  refresh: once
+  recap: 7
+  preview: 2
+
+mytvsuper_84:
+  name:
+    - 明珠台
+  scraper:
+    mytvsuper: 84
+  refresh: once
+  recap: 7
+  preview: 2
+
+mytvsuper_85:
+  name:
+    - 無綫財經體育資訊台
+  scraper:
+    mytvsuper: 85
+  refresh: once
+  recap: 7
+  preview: 2
