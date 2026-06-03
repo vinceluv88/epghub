@@ -1,4 +1,4 @@
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader
 from epg import utils
 from epg.generator import xmltv
 from epg.generator import diyp
@@ -90,13 +90,10 @@ diyp.write(os.path.join(os.getcwd(), "web", "diyp_files"), channels)
 
 # Load the template
 templateLoader = FileSystemLoader(searchpath=os.path.join(os.getcwd(), "templates"))
-env = Environment(
-    loader=templateLoader,
-    autoescape=select_autoescape(["html", "xml", "jinja2"]),
-)
+env = Environment(loader=templateLoader)
 template = env.get_template("index.html.jinja2")
 
-title = "EPG"
+title = "myTV SUPER 節目表"
 channel_list = [channel.metadata["name"][0] for channel in channels]
 first_channel = channel_list[0]
 channel_list = channel_list[1:]
@@ -130,16 +127,65 @@ shutil.copyfile(
     os.path.join(os.getcwd(), "web", "robots.txt"),
 )
 
+# ==================== 🛠️ 以下為修正後的 Cloudflare Worker 自動部署定時器邏輯 ====================
 if CF_PAGES is not None:
-    if CLOUDFLARE_API_TOKEN is None:
-        print(
-            "!!!Please set DEPLOY_HOOK environment variables to deploy automatically!!!"
-        )
-    if DEPLOY_HOOK is None:
-        print(
-            "!!!Please set CLOUDFLARE_API_TOKEN environment variables to deploy automatically!!!"
-        )
-    if DEPLOY_HOOK is not None and CLOUDFLARE_API_TOKEN is not None:
-        cmd = f'cd workers && npx --yes wrangler deploy --var DEPLOY_HOOK:{DEPLOY_HOOK} --triggers "{CRON_TRIGGER}"'
-        # print(cmd)
-        os.system(cmd)
+    if CLOUDFLARE_API_TOKEN is None or DEPLOY_HOOK is None:
+        print("!!!請檢查：DEPLOY_HOOK 或 CLOUDFLARE_API_TOKEN 環境變數缺失，無法配置自動更新!!!")
+    else:
+        print("正在透過 Python API 自動配置 Cloudflare Worker 定時鬧鐘...", flush=True)
+        import requests
+        import json
+        
+        headers = {
+            "Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}",
+            "Content-Type": "application/json"
+        }
+        
+        try:
+            # 1. 獲取您的 Cloudflare 帳戶 ID (Account ID)
+            acc_res = requests.get("https://cloudflare.com", headers=headers).json()
+            if acc_res.get("success") and acc_res.get("result"):
+                # 取得列表中的第一個帳戶 ID
+                account_id = acc_res["result"][0]["id"]
+                worker_name = "epghub-scheduler"
+                
+                # 2. 編寫 Worker 鬧鐘腳本（時間到時自動發送 POST 請求給 Pages Deploy Hook）
+                worker_script = f"""
+                export default {{
+                  async scheduled(event, env, ctx) {{
+                    await fetch("{DEPLOY_HOOK}", {{ method: "POST" }});
+                  }}
+                }};
+                """
+                
+                # 3. 上傳並部署 Worker 腳本
+                upload_url = f"https://cloudflare.com/{account_id}/workers/scripts/{worker_name}"
+                metadata = {"main_module": "index.js"}
+                files = {
+                    "metadata": (None, json.dumps(metadata), "application/json"),
+                    "index.js": (None, worker_script, "application/javascript")
+                }
+                
+                # 獨立建立不含 JSON Content-Type 的 Header，讓 requests 自動帶入 multipart boundary
+                upload_headers = {"Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}"}
+                res = requests.put(upload_url, headers=upload_headers, files=files).json()
+                
+                if res.get("success"):
+                    print(f"成功部署 Worker 腳本: {worker_name}", flush=True)
+                    
+                    # 4. 為這個 Worker 綁定 Cron 定時器
+                    trigger_url = f"https://cloudflare.com/{account_id}/workers/scripts/{worker_name}/triggers"
+                    trigger_data = [{"cron": CRON_TRIGGER}]
+                    cron_res = requests.put(trigger_url, headers=headers, json=trigger_data).json()
+                    
+                    if cron_res.get("success"):
+                        print(f"🎉 成功同步自動更新定時器 [{CRON_TRIGGER}] 到 Cloudflare！", flush=True)
+                    else:
+                        print(f"❌ 定時器綁定失敗，原因: {cron_res.get('errors')}")
+                else:
+                    print(f"❌ Worker 腳本上傳失敗，原因: {res.get('errors')}")
+            else:
+                print(f"❌ 無法獲取 Cloudflare 帳戶 ID，請確認 Token 權限是否包含 [帳戶-Cloudflare Pages-編輯]、[帳戶-Worker指令碼-編輯]、[使用者-成員資格-讀取]。")
+        except Exception as e:
+            print(f"❌ 自動配置 Worker 發生異常: {str(e)}")
+# ==================== 🛠️ 修改結束 ====================
