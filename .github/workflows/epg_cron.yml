@@ -1,0 +1,17 @@
+name: 每日定時觸發 Cloudflare Pages 構建
+
+on:
+  schedule:
+    # ⚠️ 注意：GitHub Actions 強制使用 UTC 時間。
+    # 如果您希望在「北京時間晚上 21:10」觸發，21 - 8 = 13，所以填寫 10 13 * * *
+    - cron: '18 20 * * *'
+  # 允許您在 GitHub 網頁上手動點擊執行測試
+  workflow_dispatch: 
+
+jobs:
+  trigger_cloudflare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 呼叫 Cloudflare Deploy Hook
+        run: |
+          curl -X POST https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/4857d93e-aa2f-46c2-93d1-8ce9ec0176cf
