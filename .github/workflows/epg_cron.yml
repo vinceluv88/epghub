@@ -1,17 +1,37 @@
-name: 每日定時觸發 Cloudflare Pages 構建
+name: 每日定時觸發 Cloudflare Pages 構建（永久不休眠版）
 
 on:
   schedule:
-    # ⚠️ 注意：GitHub Actions 強制使用 UTC 時間。
-    # 如果您希望在「北京時間晚上 21:10」觸發，21 - 8 = 13，所以填寫 10 13 * * *
-    - cron: '18 20 * * *'
-  # 允許您在 GitHub 網頁上手動點擊執行測試
+    # ⚠️ 這裡使用 UTC 時間。
+    # 北京時間晚上 21:10 (21 - 8 = 13)，所以填寫 10 13 * * *
+    - cron: '13 20 * * *'
+  # 允許您隨時在 GitHub 網頁上手動點擊執行測試
   workflow_dispatch: 
 
 jobs:
-  trigger_cloudflare:
+  trigger_and_keep_alive:
     runs-on: ubuntu-latest
     steps:
+      # 1. 核心步驟：定時呼叫 Cloudflare Deploy Hook 讓 Pages 開始更新節目表
       - name: 呼叫 Cloudflare Deploy Hook
         run: |
           curl -X POST https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/4857d93e-aa2f-46c2-93d1-8ce9ec0176cf
+
+      # 2. 檢出您的 GitHub 專案程式碼，準備進行歷史活躍度更新
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 3. 每天自動修改或建立一個名為 keep_alive.txt 的小檔案，並寫入目前的執行時間
+      - name: 更新活躍時間戳記
+        run: |
+          echo "最後自動執行時間: $(date)" > keep_alive.txt
+
+      # 4. 讓 GitHub Actions 官方機器人自動將變更 Push 推回倉庫
+      # 每天都有新的 Commit 紀錄，GitHub 就永遠不會把您的定時任務關閉
+      - name: 自動提交以防止 60 天休眠
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@://github.com"
+          git add keep_alive.txt
+          git commit -m "chore: 每日定時活躍度同步，防止 GitHub Actions 休眠" || exit 0
+          git push
